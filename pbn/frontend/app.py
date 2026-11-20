@@ -12,8 +12,8 @@ import pandas as pd
 import streamlit as st
 
 from pbn.backend.methods import METHODS
-from pbn.backend.render import ARTIFACTS, RECIPE_ARTIFACTS, save_all
-from pbn.frontend.folder_picker import pick_folder
+from pbn.backend.package import build_package, package_filenames, safe_name
+from pbn.backend.render import ARTIFACTS, RECIPE_ARTIFACTS
 from pbn.frontend.hero import hero_html
 from pbn.frontend.paints_ui import mix_comparison, paints_section
 from pbn.frontend.params import param_form
@@ -121,15 +121,6 @@ def show_comparison(snap: dict):
 
 
 # ------------------------------------------------------------------ generate tab
-def _browse():
-    chosen = pick_folder(st.session_state.export_dir)
-    if chosen:
-        st.session_state.export_dir = chosen
-        st.session_state.browse_note = None
-    else:
-        st.session_state.browse_note = "No folder chosen (dialog cancelled or unavailable) — type the path instead."
-
-
 def generate_tab(data: bytes, name: str):
     left, right = st.columns([1, 3], gap="large")
     with left:
@@ -176,28 +167,38 @@ def generate_tab(data: bytes, name: str):
         export_section(snap, view, recipes)
 
 
+def _package_info(snap: dict, recipes) -> dict:
+    """What went into the package, so a ZIP can be reproduced or understood months later."""
+    info = {"image": snap["name"], "method": snap["method"], "settings": snap["params"], "output_scale": snap["scale"]}
+    if recipes:
+        ss = st.session_state
+        info["paint_recipes"] = {
+            "canvas_cm": [ss.get("canvas_w"), ss.get("canvas_h")], "ml_per_100cm2": ss.get("ml_rate"),
+            "coats": ss.get("coats"), "max_tubes": ss.get("max_paints"), "recipe_style": ss.get("recipe_style"),
+            "tubes_used": sorted({name for r in recipes for name, _ in r.parts}),
+        }
+    return info
+
+
 def export_section(snap: dict, view, recipes=None):
-    st.subheader("Export")
-    st.session_state.setdefault("export_dir", str(Path.home() / "pbn_exports"))
-    c1, c2 = st.columns([5, 1], vertical_alignment="bottom")
-    c1.text_input("Export folder", key="export_dir", help="Created if it doesn't exist. This is a folder on the machine running the app.")
-    c2.button("Browse…", on_click=_browse, width="stretch")
-    if st.session_state.get("browse_note"):
-        st.caption(st.session_state.browse_note)
+    st.subheader("Download")
     options = list(ARTIFACTS) + (list(RECIPE_ARTIFACTS) if recipes else [])
     chosen = st.multiselect("Artifacts", options, default=options, format_func=ARTIFACT_LABELS.get)
-    stem = st.text_input("File name prefix", value=f"{snap['name']}_{snap['method']}", key=f"stem_{snap['name']}_{snap['method']}")
+    stem = st.text_input("Package name", value=f"{snap['name']}_{snap['method']}", key=f"stem_{snap['name']}_{snap['method']}",
+                         help="Used as the ZIP's file name and as the folder inside it.")
+    clean = safe_name(stem)
+    result, scale, info = view.result, snap["scale"], _package_info(snap, recipes)
 
-    if st.button("Export", type="primary", disabled=not chosen or not stem.strip()):
-        folder = Path(st.session_state.export_dir).expanduser()
-        try:
-            with st.spinner("Writing files…"):
-                paths = save_all(view.result, folder, stem.strip(), scale=snap["scale"], artifacts=chosen, recipes=recipes)
-        except OSError as e:
-            st.error(f"Could not write to {folder}: {e}")
-        else:
-            st.success(f"Saved {len(paths)} file(s) to {folder}")
-            st.code("\n".join(str(p) for p in paths.values()), language=None)
+    def build() -> bytes:
+        """Runs when the button is clicked (on a worker thread): renders the files and returns the ZIP."""
+        return build_package(result, clean, list(chosen), scale, recipes, info)[0]
+
+    st.download_button("Download ZIP", build, file_name=f"{clean}.zip", mime="application/zip", type="primary",
+                       key="dl_zip", on_click="ignore", disabled=not chosen or not stem.strip())
+    st.caption("The ZIP is built when you click and goes to your browser as a normal download, so it is saved on your "
+               "computer, never on the server. Your browser decides the folder (most can be set to ask).")
+    with st.expander("Files in the package"):
+        st.code("\n".join(package_filenames(clean, chosen)), language=None)
 
 
 # ------------------------------------------------------------------ main

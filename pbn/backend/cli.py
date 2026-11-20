@@ -10,6 +10,7 @@ import cv2
 from .compare import contact_sheet, metrics
 from .imageops import load_image
 from .methods import METHODS, run_method
+from .package import make_zip
 from .paints import STANDARD_SET
 from .presets import DEFAULT_COMPACTNESS, PRESETS, method_opts
 from .recipes import build_recipes
@@ -67,6 +68,7 @@ def main(argv=None):
                      help="also write acrylic mixing recipes (standard 12-tube set) as a PNG sheet and CSV")
     run.add_argument("--tube-penalty", type=float, default=1.0,
                      help="cost per extra tube in dE units: 1.0 simple recipes (default), ~0.25 more accurate with more tubes")
+    run.add_argument("--zip", action="store_true", help="also bundle everything into <name>.zip")
     run.add_argument("--canvas", default="40x50", help="canvas size WxH in cm, for paint quantities (default 40x50)")
     run.add_argument("--max-paints", type=int, default=3, choices=[2, 3, 4, 5, 6],
                      help="max tubes per mix (default 3; 5-6 refine hard colours by local search)")
@@ -96,13 +98,23 @@ def main(argv=None):
             recipes = build_recipes(res, STANDARD_SET, a.max_paints, (w, h), a.ml_per_100cm2, a.coats,
                                     tube_penalty=a.tube_penalty)
             artifacts = ARTIFACTS + RECIPE_ARTIFACTS
-        paths = save_all(res, out, f"{Path(a.image).stem}_{res.name}", a.scale, artifacts, recipes)
+        stem = f"{Path(a.image).stem}_{res.name}"
+        paths = save_all(res, out, stem, a.scale, artifacts, recipes)
         print(metrics(res))
         if recipes:
             for r in recipes:
                 print(f"  {r.number:>2}: {r.text}  (dE {r.delta_e:.1f}, ~{r.total_ml:.1f} ml)")
         for k, v in paths.items():
             print(f"  {k:8s} {v}")
+        if a.zip:
+            info = {"image": Path(a.image).name, "method": a.method, "detail": a.detail, "size": a.size,
+                    "parameters": _opts(a), "output_scale": a.scale}
+            if recipes:
+                info["paint_recipes"] = {"canvas_cm": a.canvas, "max_tubes": a.max_paints, "tube_penalty": a.tube_penalty,
+                                         "ml_per_100cm2": a.ml_per_100cm2, "coats": a.coats}
+            zip_path = out / f"{stem}.zip"
+            zip_path.write_bytes(make_zip(paths, stem, info))
+            print(f"  {'zip':8s} {zip_path}")
     else:
         for image in a.images:
             stem = Path(image).stem

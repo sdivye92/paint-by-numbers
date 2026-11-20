@@ -94,9 +94,9 @@ Choose a photo in the sidebar (upload one or use a sample), then use either tab.
 - see the colour preview, numbered outline and legend (hover any image for a fullscreen button);
 - under **Paint recipes**: edit your paint set, set canvas size and coverage, choose *Max tubes per mix* (2–6) and *Recipe style*, and read the recipe table and total paint needed;
 - under **Photo vs template vs your paints**: compare the photo, the algorithm's palette, and the template repainted in the colours your mixes should produce;
-- under **Export**: choose a folder (type a path or use **Browse…** for a native folder dialog), choose which artifacts to save, and press **Export**.
+- under **Download**: choose which artifacts to include and a package name, then press **Download ZIP**. The ZIP is built at the moment you click and goes to your browser as an ordinary download, so it lands on *your* computer, never on the server. Your browser decides the folder (most can be set to "ask where to save each file").
 
-The folder is on the machine running the app. If the app runs on a remote machine, the files are written there.
+The ZIP contains one folder with your files plus a `package_info.json` recording the method, settings and recipe settings used. Nothing is prepared in advance and nothing is kept: each click renders the files in a temporary folder on the server, streams the ZIP to that visitor, and discards the folder. This also means a deployed copy of the app never stores anyone's files.
 
 ## Command line
 
@@ -127,6 +127,7 @@ Examples:
 | `--regions N`, `--superpixels N`, `--compactness X` | run, compare | Method B controls |
 | `--scale N` | run, compare | Outline PNG scale (default 3) |
 | `--recipes` | run | Also write paint recipes (PNG sheet, CSV, mixed preview) |
+| `--zip` | run | Also bundle everything into `<name>.zip` (with `package_info.json`) |
 | `--canvas WxH` | run | Canvas size in cm for quantities (default `40x50`) |
 | `--max-paints 2…6` | run | Maximum tubes per mix (default 3) |
 | `--tube-penalty X` | run | Cost per extra tube: 1.0 simple (default) … 0.1 most accurate |
@@ -238,7 +239,7 @@ Per image and method:
 | `*_recipes.csv` | The recipe table as data |
 | `*_mix_preview.png` | The template repainted in the predicted mixed colours |
 
-The app lets you export any subset; the three recipe files appear once recipes exist (CLI: `--recipes`). `compare` also writes `compare_<image>.png`, a side-by-side sheet.
+The app bundles any subset you choose into a single `<name>.zip` (one folder inside, plus `package_info.json` listing the settings used); the three recipe files appear once recipes exist (CLI: `--recipes`, and `--zip` for the ZIP). `compare` also writes `compare_<image>.png`, a side-by-side sheet.
 
 ## Project layout
 
@@ -247,6 +248,7 @@ pbn/
   __main__.py          python -m pbn → CLI
   backend/             no UI dependencies; everything the CLI and app share
     cli.py             run / compare / app commands
+    package.py         ZIP packaging (the app's download and `run --zip`)
     presets.py         detail presets and the parameter mapping
     imageops.py        loading, bilateral smoothing, CIELAB conversion
     methods.py         method A and B pipelines, k-means palette, Ward merging
@@ -262,11 +264,10 @@ pbn/
     params.py          parameter widgets
     paints_ui.py       paint set, recipes, three-way comparison
     views.py           cached pipeline runs
-    folder_picker.py   native folder dialog (tkinter / zenity / kdialog)
     hero.py            generated header artwork
     style.py           tab typography
 explanation/           one document per algorithm: maths, parameters, pseudo-code
-tests/                 20 tests
+tests/                 27 tests
 samples/               three example photos (from scikit-image's data set)
 .streamlit/config.toml app theme (warm paper and ink, serif headings, light and dark)
 requirements.txt
@@ -289,10 +290,10 @@ The recipe library builds in 0.1–0.3 s per paint set and recipes for 16 colour
 ## Tests
 
 ```bash
-.venv/bin/python -m pytest        # 20 tests, about 4 seconds
+.venv/bin/python -m pytest        # 27 tests, about 5 seconds
 ```
 
-They check, among other things: the graph-cut move against brute force on tiny grids; that cleanup leaves no region smaller or narrower than the limits (both methods); that palette numbers run dark to light; the mixing model's qualitative behaviour (yellow + blue goes green, tints lighten); that each tube matches itself; that quantities add up; that the 5–6 tube search is never worse than 4 under the same objective; export of every artifact; and a headless run of the whole web app (compare, generate, recipes, export).
+They check, among other things: the graph-cut move against brute force on tiny grids; that cleanup leaves no region smaller or narrower than the limits (both methods); that palette numbers run dark to light; the mixing model's qualitative behaviour (yellow + blue goes green, tints lighten); that each tube matches itself; that quantities add up; that the 5–6 tube search is never worse than 4 under the same objective; ZIP packaging (contents, safe names, no path escape, planned file names match the built archive); and a headless run of the whole web app (compare, generate, recipes, and the download button).
 
 ## Design notes and findings
 
@@ -330,7 +331,7 @@ Ideas that would help:
 | `ImportError: cannot import name …` in the browser after updating the code | The running server holds old cached modules. Stop it and start `python -m pbn app` again |
 | Theme, header art or tab sizes didn't change | The theme is read at start-up; restart the app, and run it from the project folder |
 | "Port 8501 is not available" | Another app is using it: `python -m pbn app --port 8600` |
-| **Browse…** does nothing | It needs `tkinter`, `zenity` or `kdialog` and a desktop session. Type the folder path instead |
+| The ZIP downloads without asking where to save it | Browsers decide that, not the app. Turn on your browser's "ask where to save each file" setting (Chrome: Settings → Downloads; Firefox: Settings → General → Downloads) |
 | Very slow at high detail | Expected for method A (it scales with pixels × colours). Use `slic-merge`, or lower the working resolution or the colour count |
 | Fewer colours than I asked for | A colour that ends up unused (cleanup absorbed all its regions) is dropped; raise `-k` or lower the minimum area |
 | Many recipes marked "approximate" | The colour is outside what the enabled tubes mix well. Enable more tubes, lower the *Recipe style* penalty, or raise *Max tubes* |

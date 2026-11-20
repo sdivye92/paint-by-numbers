@@ -97,6 +97,7 @@ How to read them: the *template* error (algorithm preview vs photo) reflects how
 - `*_recipes.csv` columns: `number, target_hex, predicted_hex, delta_e2000, match, recipe, coverage_pct, total_ml, ml_by_paint`.
 - `*_recipes.png`: a printable sheet with target and predicted swatches, the recipe, ml per tube, and the paint totals.
 - `*_palette.json`: palette hex values and coverage; with recipes enabled each entry also has the parts, ΔE and ml per tube.
+- In the web app all selected files are bundled into one ZIP (one folder inside) with a `package_info.json` that records the method, settings, canvas and recipe settings; `run --zip` does the same from the command line.
 
 ## Code
 

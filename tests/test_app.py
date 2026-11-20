@@ -26,25 +26,26 @@ def test_compare_generate_and_export(tmp_path):
     assert not at.exception
     assert any("Metrics" in s.value for s in at.subheader)
 
-    # Generate tab + export to a chosen folder.
+    # Generate tab: results, paint recipes, three-way comparison and the download section.
     at.slider(key="gen_low_size").set_value(400)
     at.button(key="gen_run").click().run()
     assert not at.exception
-    assert any("Export" in s.value for s in at.subheader)
     assert any("Paint recipes" in s.value for s in at.subheader)
     assert any("Photo vs template vs your paints" in s.value for s in at.subheader)
     at.select_slider(key="max_paints").set_value(6).run()  # 5-6 tube search
     at.select_slider(key="recipe_style").set_value("Accurate").run()
     assert not at.exception
 
-    at.text_input(key="export_dir").set_value(str(tmp_path / "exports")).run()
-    export = next(b for b in at.button if b.label == "Export")
-    export.click().run()
+    # The download button builds the ZIP only when clicked (deferred), so here we check it is offered and
+    # that it disables itself when nothing is selected. The ZIP contents are covered in test_package.py.
+    assert any("Download" in s.value for s in at.subheader)
+    (button,) = at.get("download_button")
+    assert button.proto.label == "Download ZIP" and not button.proto.disabled
+    assert any("never on the server" in c.value for c in at.caption)
+    at.multiselect[0].set_value([]).run()
     assert not at.exception
-    written = sorted(p.name for p in (tmp_path / "exports").iterdir())
-    assert any(n.endswith("_outline.svg") for n in written)
-    assert any(n.endswith("_palette.json") for n in written)
-    assert len(written) == 8  # 5 template files + recipe sheet + recipe CSV + mixed-colour preview
+    assert at.get("download_button")[0].proto.disabled
+
 
 
 def test_export_subset(tmp_path):

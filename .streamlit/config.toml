@@ -1,0 +1,34 @@
+# Restrained, studio-like theme: warm paper and ink, burnt-sienna accent, serif headings.
+# Streamlit reads this at startup (run the app from the project folder), so restart it after editing.
+
+[theme]
+headingFont = "serif"
+headingFontSizes = ["2.4rem", "1.6rem", "1.25rem"]
+headingFontWeights = 500
+baseRadius = "0.25rem"
+buttonRadius = "0.25rem"
+showWidgetBorder = true
+
+[theme.light]
+base = "light"
+primaryColor = "#7a3e2a"
+backgroundColor = "#faf8f4"
+secondaryBackgroundColor = "#f0ebe2"
+textColor = "#2a2825"
+linkColor = "#7a3e2a"
+borderColor = "#ddd5c8"
+blueColor = "#6b5a48"             # st.info and friends: a warm neutral instead of bright blue
+blueBackgroundColor = "#ece6da"
+blueTextColor = "#4d4033"
+
+[theme.dark]
+base = "dark"
+primaryColor = "#c98a62"
+backgroundColor = "#1b1a18"
+secondaryBackgroundColor = "#252320"
+textColor = "#e9e4db"
+linkColor = "#c98a62"
+borderColor = "#3a3733"
+blueColor = "#b39b82"
+blueBackgroundColor = "#2c2924"
+blueTextColor = "#d9ccba"
